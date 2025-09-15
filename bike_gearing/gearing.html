@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bicycle Gearing Calculator</title>
+    <style>
+        .cross-chain {
+            background-color: #ffdddd;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .input-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, button {
+            padding: 8px;
+            margin-bottom: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        th.sort-asc::after {
+            content: " ↑";
+        }
+        th.sort-desc::after {
+            content: " ↓";
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bicycle Gearing Calculator</h1>
+
+    <div class="input-section">
+        <label for="chainring">Chainring Teeth (comma-separated):</label>
+        <input type="text" id="chainring" placeholder="e.g., 46,30" value="46,30" required>
+
+        <label for="cassette">Cassette Teeth (comma-separated):</label>
+        <input type="text" id="cassette" placeholder="e.g., 11,13,15,17,20,23,26,30,36" value="11,13,15,17,20,23,26,30,36" required>
+
+        <label for="wheelSize">Wheel Size (in inches):</label>
+        <input type="number" id="wheelSize" placeholder="e.g., 28 (700c)" value="28" required>
+
+        <button onclick="calculateGearing()">Calculate Gear Ratios</button>
+    </div>
+
+    <div id="error" class="error"></div>
+
+    <table id="gearTable">
+        <thead>
+            <tr>
+                <th>Chainring</th>
+                <th>Cassette</th>
+                <th>Cassette Gear #</th>
+                <th>Ratio</th>
+                <th>Distance/Pedal Stroke</th>
+                <th>Speed (mph) at 80 RPM</th>
+            </tr>
+        </thead>
+        <tbody id="gearTableBody">
+            <!-- Gear ratios will be inserted here -->
+        </tbody>
+    </table>
+
+    <script>
+        function calculateGearing() {
+            // Clear previous results and error
+            document.getElementById('gearTableBody').innerHTML = '';
+            document.getElementById('error').innerHTML = '';
+
+            // Get input values
+            const chainringInput = document.getElementById('chainring').value.trim();
+            const cassetteInput = document.getElementById('cassette').value.trim();
+
+            // Validate input
+            if (!chainringInput || !cassetteInput) {
+                showError('Please enter both chainring and cassette teeth');
+                return;
+            }
+
+            // Parse teeth arrays
+            let chainringTeeth = parseTeethArray(chainringInput);
+            let cassetteTeeth = parseTeethArray(cassetteInput);
+
+            if (!chainringTeeth || !cassetteTeeth) {
+                return; // Error already shown
+            }
+
+            // Calculate and display gear ratios
+            const tableBody = document.getElementById('gearTableBody');
+
+            // Sort cassette teeth in descending order to determine gear numbers
+            const sortedCassetteTeeth = [...cassetteTeeth].sort((a, b) => b - a);
+
+            // Find the largest and smallest chainring and cassette teeth for cross-chaining detection
+            const largestChainring = Math.max(...chainringTeeth);
+            const smallestChainring = Math.min(...chainringTeeth);
+            const largestCassette = Math.max(...cassetteTeeth);
+            const smallestCassette = Math.min(...cassetteTeeth);
+
+            for (let i = 0; i < chainringTeeth.length; i++) {
+                for (let j = 0; j < cassetteTeeth.length; j++) {
+                    const chainring = chainringTeeth[i];
+                    const cassette = cassetteTeeth[j];
+                    // Find the gear number (1-based index in sorted order)
+                    const gearNumber = sortedCassetteTeeth.indexOf(cassette) + 1;
+
+                    // Check for cross-chaining conditions
+                    const isCrossChain = (chainring === largestChainring && cassette === largestCassette) ||
+                                       (chainring === smallestChainring && cassette === smallestCassette);
+                    const ratio = chainring / cassette;
+                    const wheelSize = parseFloat(document.getElementById('wheelSize').value);
+                    const distancePerStroke = (Math.PI * wheelSize * ratio) / 12; // Distance per pedal stroke in feet
+                    const speedMph = (distancePerStroke * 4800) / 5280; // Speed in mph at 80 RPM (4800 revolutions per hour)
+
+                    const row = document.createElement('tr');
+
+                    row.innerHTML = `
+                        <td>${chainring}</td>
+                        <td>${cassette}</td>
+                        <td>${gearNumber}</td>
+                        <td>${ratio.toFixed(2)}</td>
+                        <td>${distancePerStroke.toFixed(1)} ft</td>
+                        <td>${speedMph.toFixed(1)} mph</td>
+                    `;
+
+                    // Add cross-chain class if conditions are met
+                    if (isCrossChain) {
+                        row.classList.add('cross-chain');
+                    }
+
+                    tableBody.appendChild(row);
+                }
+            }
+
+            // Sort by ratio by default after calculating gear ratios
+            sortTable(3, -1); // Sort by ratio column (index 3) in descending order
+
+            // Set initial sort indicator for ratio column
+            const headers = document.querySelectorAll('#gearTable th');
+            headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+            headers[3].classList.add('sort-desc');
+        }
+
+        function parseTeethArray(input) {
+            const array = input.split(',').map(item => item.trim());
+
+            // Validate that all items are numbers
+            for (let i = 0; i < array.length; i++) {
+                const num = parseFloat(array[i]);
+                if (isNaN(num) || num <= 0) {
+                    showError(`Invalid value "${array[i]}" in input. Please enter only positive numbers.`);
+                    return null;
+                }
+                array[i] = num;
+            }
+
+            return array;
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('error');
+            errorElement.innerHTML = message;
+            errorElement.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Sortable table functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const table = document.getElementById('gearTable');
+            const headers = table.querySelectorAll('th');
+            let currentSortColumn = 3; // Default to sorting by ratio column (index 3)
+            let currentSortDirection = -1; // Default to descending for ratio
+
+            // Set initial sort indicator
+            headers[currentSortColumn].classList.add('sort-desc');
+
+            headers.forEach((header, index) => {
+                header.addEventListener('click', () => {
+                    // Reset sort indicators
+                    headers.forEach(h => {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    });
+
+                    // If clicking the same column, reverse direction
+                    if (currentSortColumn === index) {
+                        currentSortDirection *= -1;
+                    } else {
+                        currentSortColumn = index;
+                        currentSortDirection = 1;
+                    }
+
+                    // Add sort indicator
+                    header.classList.add(currentSortDirection === 1 ? 'sort-asc' : 'sort-desc');
+
+                    // Sort the table
+                    sortTable(index, currentSortDirection);
+                });
+            });
+
+            // Remove the default sort on page load since it happens after calculation
+            // sortTable(currentSortColumn, currentSortDirection);
+        });
+
+        function sortTable(columnIndex, direction) {
+            const table = document.getElementById('gearTable');
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                const aValue = getCellValue(a.cells[columnIndex]);
+                const bValue = getCellValue(b.cells[columnIndex]);
+
+                if (typeof aValue === 'number' && typeof bValue === 'number') {
+                    return (aValue - bValue) * direction;
+                } else {
+                    // For text columns (like chainring and cassette)
+                    const textA = String(aValue).toLowerCase();
+                    const textB = String(bValue).toLowerCase();
+                    return textA.localeCompare(textB) * direction;
+                }
+            });
+
+            // Rebuild the table body with sorted rows
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function getCellValue(cell) {
+            const text = cell.textContent.trim();
+            // Remove units (ft, mph) for numeric comparison
+            const numericValue = parseFloat(text.replace(/[^\d.-]/g, ''));
+
+            return isNaN(numericValue) ? text : numericValue;
+        }
+    </script>
+    <div style="margin-top: 20px; font-style: italic; color: #666;">
+        Note: Rows highlighted in light red indicate cross-chaining combinations (largest chainring with largest cassette or smallest chainring with smallest cassette) which are generally less efficient.
+    </div>
+</body>
+</html>
