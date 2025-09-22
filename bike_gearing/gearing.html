@@ -75,6 +75,14 @@
     <h1>Bicycle Gearing Calculator</h1>
 
     <div class="input-section">
+        <label for="bikePreset">Select Bike Preset:</label>
+        <select id="bikePreset">
+            <option value="trekFX2Gen3">Trek FX2 Gen 3</option>
+            <option value="trekDomaneAL5Gen4">Trek Domane AL 5 Gen 4</option>
+            <!-- Add more presets here -->
+        </select>
+        <button onclick="loadPreset()">Load Preset</button>
+
         <label for="chainring">Chainring Teeth (comma-separated):</label>
         <input type="text" id="chainring" placeholder="e.g., 46,30" value="46,30" required>
 
@@ -106,6 +114,31 @@
     </table>
 
     <script>
+        const presets = {
+            trekFX2Gen3: {
+                chainring: "46,30",
+                cassette: "11,13,15,17,20,23,26,30,36",
+                wheelSize: "28"
+            },
+            trekDomaneAL5Gen4: {
+                chainring: "50,34",
+                cassette: "11,12,13,14,15,17,19,21,24,27,30,34",
+                wheelSize: "28"
+            }
+            // Add more presets here
+        };
+
+        function loadPreset() {
+            const selectedPreset = document.getElementById('bikePreset').value;
+            const preset = presets[selectedPreset];
+
+            if (preset) {
+                document.getElementById('chainring').value = preset.chainring;
+                document.getElementById('cassette').value = preset.cassette;
+                document.getElementById('wheelSize').value = preset.wheelSize;
+            }
+        }
+
         function calculateGearing() {
             // Clear previous results and error
             document.getElementById('gearTableBody').innerHTML = '';
