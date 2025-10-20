@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timezone Converter</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0 20px; /* Add left and right padding */
+            overflow: hidden;
+        }
+        .table-container {
+            height: 100vh;
+            overflow-y: auto;
+            padding-left: 20px; /* Add left padding */
+        }
+        table {
+            width: 100%;
+            table-layout: fixed;
+        }
+        th, td {
+            width: 33.33%;
+        }
+        table {
+            width: 80%; /* Reduced width */
+            border-collapse: collapse;
+            margin: 20px auto; /* Center the table */
+            border-left: 1px solid #ddd; /* Left border */
+            border-right: 1px solid #ddd; /* Right border */
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 4px; /* Reduced padding */
+            text-align: center;
+            font-size: 14px; /* Reduced font size */
+        }
+        th {
+            background-color: #00008b; /* Darker blue */
+            color: #ffffff; /* White text */
+        }
+        tr:nth-child(even) {
+            background-color: #ffffff; /* White */
+        }
+        tr:nth-child(odd) {
+            background-color: #e0ffff; /* Pale turquoise */
+        }
+        tr:hover {
+            background-color: #b0e0e6; /* Powder blue */
+        }
+        .bold-cell {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Timezone Converter</h1>
+    <label for="timezone1">Timezone 1:</label>
+    <select id="timezone1">
+        <option value="US/Pacific">US/Pacific</option>
+        <option value="US/Mountain">US/Mountain</option>
+        <option value="US/Central">US/Central</option>
+        <option value="US/East">US/East</option>
+        <option value="UTC">UTC</option>
+        <option value="US/Hawaii">US/Hawaii</option>
+    </select>
+    <input type="number" id="offset1" value="0">
+    <br><br>
+    <label for="timezone2">Timezone 2:</label>
+    <select id="timezone2">
+        <option value="US/East">US/East</option>
+        <option value="US/Pacific">US/Pacific</option>
+        <option value="US/Mountain">US/Mountain</option>
+        <option value="US/Central">US/Central</option>
+        <option value="UTC">UTC</option>
+        <option value="US/Hawaii">US/Hawaii</option>
+    </select>
+    <input type="number" id="offset2" value="0">
+    <br><br>
+    <button onclick="updateTable()">Update Table</button>
+    <br><br>
+    <div class="table-container">
+        <table id="conversionTable">
+        <thead>
+            <tr>
+                <th>UTC Date and Hour</th>
+                <th>Timezone 1</th>
+                <th>Timezone 2</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows will be added here by JavaScript -->
+        </tbody>
+    </table>
+        </div>
+
+    <script>
+        const timezoneOffsets = {
+            "UTC": 0,
+            "US/Pacific": -8,
+            "US/Mountain": -7,
+            "US/Central": -6,
+            "US/East": -5,
+            "US/Hawaii": -10
+        };
+
+        const dstOffsets = {
+            "US/Pacific": -7,
+            "US/Mountain": -6,
+            "US/Central": -5,
+            "US/East": -4
+        };
+
+        function find2ndSundayInMarch(year) {
+            const firstDay = new Date(year, 2, 1);
+            const firstSunday = firstDay.getDate() + (7 - firstDay.getDay());
+            return new Date(year, 2, firstSunday + 7);
+        }
+
+        function find1stSundayInNovember(year) {
+            const firstDay = new Date(year, 10, 1);
+            const firstSunday = firstDay.getDate() + (7 - firstDay.getDay());
+            return new Date(year, 10, firstSunday);
+        }
+
+        function isDST(date) {
+            const month = date.getMonth();
+            const day = date.getDate();
+            const year = date.getFullYear();
+
+            if (month < 3 || month > 10) return false; // March to November
+            if (month === 3 && date < find2ndSundayInMarch(year)) return false; // Before the second Sunday in March
+            if (month === 10 && date >= find1stSundayInNovember(year)) return false; // After the first Sunday in November
+
+            return true;
+        }
+
+        function updateOffset(inputId, selectId) {
+            const select = document.getElementById(selectId);
+            const input = document.getElementById(inputId);
+            const selectedValue = select.value;
+            const date = new Date();
+            const offset = isDST(date) && dstOffsets[selectedValue] !== undefined ? dstOffsets[selectedValue] : timezoneOffsets[selectedValue];
+            if (offset !== undefined) {
+                input.value = offset;
+            }
+        }
+
+        document.getElementById('timezone1').addEventListener('change', function() {
+            updateOffset('offset1', 'timezone1');
+        });
+
+        document.getElementById('timezone2').addEventListener('change', function() {
+            updateOffset('offset2', 'timezone2');
+        });
+
+        function updateTable() {
+            const offset1 = parseInt(document.getElementById('offset1').value);
+            const offset2 = parseInt(document.getElementById('offset2').value);
+            const tableBody = document.getElementById('conversionTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const now = new Date();
+            const currentHour = now.getHours();
+
+            for (let i = 0; i < 48; i++) {
+                const date = new Date();
+                date.setHours(now.getHours() + i);
+                const row = tableBody.insertRow();
+                const cell1 = row.insertCell(0);
+                const cell2 = row.insertCell(1);
+                const cell3 = row.insertCell(2);
+
+                cell1.textContent = date.toISOString().split('T')[0] + ' ' + date.toISOString().split('T')[1].split(':')[0] + ':00'; // UTC date and hour
+
+                const time1 = new Date(date.getTime() + offset1 * 3600000);
+                cell2.textContent = time1.toISOString().split('T')[0] + ' ' + time1.toISOString().split('T')[1].split(':')[0] + ':00'; // Timezone 1 date and hour
+
+                const time2 = new Date(date.getTime() + offset2 * 3600000);
+                cell3.textContent = time2.toISOString().split('T')[0] + ' ' + time2.toISOString().split('T')[1].split(':')[0] + ':00'; // Timezone 2 date and hour
+
+                if (time1.getUTCHours() === 0) {
+                    cell2.classList.add('bold-cell');
+                }
+                if (time2.getUTCHours() === 0) {
+                    cell3.classList.add('bold-cell');
+                }
+            }
+        }
+
+        // Initialize the table on page load
+        window.onload = function() {
+            updateOffset('offset1', 'timezone1');
+            updateOffset('offset2', 'timezone2');
+            updateTable();
+        };
+    </script>
+</body>
+</html>
