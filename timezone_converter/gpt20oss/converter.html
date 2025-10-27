@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>48‑Hour Time‑Zone Converter (Hourly)</title>
+<style>
+  /* ────── 1. Page layout ────── */
+  html, body{
+    margin:0;
+    height:100vh;          /* full viewport height */
+    box-sizing:border-box;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#fafafa;
+  }
+  body{
+    display:flex;
+    flex-direction:column;   /* stack children vertically */
+    overflow:hidden;          /* no page scroll */
+  }
+
+  h1{
+    margin:0 0 .5rem;
+    font-size:1.4rem;
+    text-align:center;       /* center title */
+  }
+
+  .controls{
+    margin:1rem;
+    flex:0 0 auto;
+    text-align:center;       /* keep controls centered */
+  }
+
+  label{margin-right:.5rem;}
+  select{margin-right:1rem;padding:.3rem;font-size:.9rem;}
+
+  /* ────── 2. Scrollable table container ────── */
+  .table-container{
+    flex:1 1 auto;            /* take up all remaining space */
+    overflow-y:auto;          /* vertical scrolling only */
+    border:1px solid #ddd;
+    max-width:800px;          /* reasonable fixed width */
+    margin:0 auto 1rem;       /* center horizontally + bottom margin */
+  }
+
+  table{
+    border-collapse:collapse;
+    width:100%;               /* fill the container */
+    min-width:600px;          /* ensures horizontal scrolling if needed */
+  }
+  th,td{
+    border:1px solid #ddd;
+    padding:.4rem .6rem;
+    font-size:.9rem;
+    text-align:center;
+  }
+  th{
+    background:#f7f7f7;
+    position:sticky;          /* keep header visible while scrolling */
+    top:0;                    /* stick to the top of the container */
+    z-index:1;
+  }
+  tbody tr:nth-child(even){background:#f0f0f0;}
+  tbody tr:nth-child(odd){background:#fff;}
+</style>
+</head>
+<body>
+
+<h1>48‑Hour Time‑Zone Converter (Hourly)</h1>
+
+<div class="controls">
+  <label for="tz1">Zone 1:</label>
+  <select id="tz1"></select>
+
+  <label for="tz2">Zone 2:</label>
+  <select id="tz2"></select>
+</div>
+
+<div class="table-container">
+  <table id="resultTable">
+    <thead>
+      <tr>
+        <th>Hour</th>
+        <th>Zone 1</th>
+        <th>Zone 2</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+/* ---------- 1. Time‑zone list ----------
+   Feel free to add or remove zones as needed. ---------- */
+const zones = [
+  'UTC',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Moscow',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Asia/Kolkata',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'Pacific/Honolulu'
+];
+
+/* ---------- 2. Populate selects ----------
+   Default to local zone (if available) and UTC. ---------- */
+const tz1Select = document.getElementById('tz1');
+const tz2Select = document.getElementById('tz2');
+
+zones.forEach(z=>{
+  const o=document.createElement('option'); o.value=o.textContent=z; tz1Select.appendChild(o);
+  const o2=document.createElement('option'); o2.value=o2.textContent=z; tz2Select.appendChild(o2);
+});
+
+const localTz=Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+tz1Select.value=localTz;
+tz2Select.value='UTC';
+
+/* ---------- 3. Get UTC offset (minutes) for a date in a zone ----------
+   Uses Intl.DateTimeFormat’s timeZoneName part. ---------- */
+function getOffsetMinutes(date, tz){
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    timeZoneName: 'short',
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(date);
+  const tzNamePart = parts.find(p => p.type === 'timeZoneName');
+  if (!tzNamePart) return 0;
+
+  const match = tzNamePart.value.match(/GMT([+-]\d{1,2})(?::(\d{2}))?$/);
+  if (!match) return 0;
+  const offsetHours = parseInt(match[1], 10);
+  const offsetMinutes = match[2] ? parseInt(match[2], 10) : 0;
+  return offsetHours * 60 + offsetMinutes;
+}
+
+/* ---------- 4. Render table ----------
+   Shows whole‑hour times for the next 48 hours and updates header with zone names. ---------- */
+const tbody = document.querySelector('#resultTable tbody');
+const thead = document.querySelector('#resultTable thead');
+
+function renderTable(){
+  const tz1 = tz1Select.value;
+  const tz2 = tz2Select.value;
+  const now = new Date();
+
+  /* Update header with the currently selected zone names */
+  thead.innerHTML = `
+    <tr>
+      <th>Hour</th>
+      <th>${tz1}</th>
+      <th>${tz2}</th>
+    </tr>`;
+
+  // Round to the next full hour
+  const nextHour = new Date(now);
+  nextHour.setMinutes(0,0,0);
+  if (now.getMinutes() || now.getSeconds() || now.getMilliseconds()){
+    nextHour.setHours(nextHour.getHours()+1);
+  }
+
+  const rows=[];
+  for (let i=0;i<48;i++){
+    const date = new Date(nextHour.getTime()+i*60*60*1000);
+
+    const fmtOpts={timeZone:tz1, weekday:'short', month:'short', day:'numeric',
+                   hour:'2-digit', minute:'2-digit', hour12:false};
+    const fmt1=new Intl.DateTimeFormat('en-US',fmtOpts);
+    const fmt2=new Intl.DateTimeFormat('en-US',{...fmtOpts, timeZone:tz2});
+
+    rows.push(`
+      <tr>
+        <td>${i}</td>
+        <td>${fmt1.format(date)}</td>
+        <td>${fmt2.format(date)}</td>
+      </tr>
+    `);
+  }
+  tbody.innerHTML = rows.join('');
+}
+
+/* ---------- 5. Event listeners & initial render ---------- */
+tz1Select.addEventListener('change', renderTable);
+tz2Select.addEventListener('change', renderTable);
+renderTable();
+</script>
+</body>
+</html>
