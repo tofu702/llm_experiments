@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunrise and Sunset Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 10px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin: 10px 0;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 3px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="number"], input[type="date"] {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: left;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 6px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .result-container {
+            margin-top: 15px;
+            height: calc(100vh - 250px);
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .result-container {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sunrise and Sunset Calculator</h1>
+        
+        <form id="sunCalcForm">
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <div style="flex: 1;">
+                    <label for="latitude">Latitude:</label>
+                    <input type="number" id="latitude" name="latitude" step="0.0001" min="-90" max="90" placeholder="Enter latitude (-90 to 90)" value="37.5588" required>
+                </div>
+                <div style="flex: 1;">
+                    <label for="longitude">Longitude:</label>
+                    <input type="number" id="longitude" name="longitude" step="0.0001" min="-180" max="180" placeholder="Enter longitude (-180 to 180)" value="-121.9484" required>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <div style="flex: 1;">
+                    <label for="startDate">Start Date:</label>
+                    <input type="date" id="startDate" name="startDate" required>
+                </div>
+                <div style="flex: 1;">
+                    <label for="endDate">End Date:</label>
+                    <input type="date" id="endDate" name="endDate" required>
+                </div>
+            </div>
+            
+            <button type="submit">Calculate Sun Times</button>
+        </form>
+        
+        <div id="errorMessage" class="error"></div>
+        
+        <div class="result-container">
+            <table id="resultsTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Sunrise</th>
+                        <th>Sunset</th>
+                        <th>Day Length</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Include SunCalc library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+    
+    <script>
+        // Set default dates when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date();
+            const nextYear = new Date();
+            nextYear.setFullYear(today.getFullYear() + 1);
+            
+            // Format dates as YYYY-MM-DD
+            const formatDate = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+            
+            document.getElementById('startDate').value = formatDate(today);
+            document.getElementById('endDate').value = formatDate(nextYear);
+        });
+        
+        document.getElementById('sunCalcForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Clear previous error messages
+            document.getElementById('errorMessage').textContent = '';
+            
+            // Get form values
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            // Validate inputs
+            if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+                showError('Please enter a valid latitude between -90 and 90');
+                return;
+            }
+            
+            if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+                showError('Please enter a valid longitude between -180 and 180');
+                return;
+            }
+            
+            if (!startDate || !endDate) {
+                showError('Please select both start and end dates');
+                return;
+            }
+            
+            if (new Date(startDate) > new Date(endDate)) {
+                showError('Start date must be before or equal to end date');
+                return;
+            }
+            
+            // Calculate sun times for each day
+            calculateSunTimes(latitude, longitude, startDate, endDate);
+        });
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+        }
+        
+        function calculateSunTimes(latitude, longitude, startDate, endDate) {
+            const resultsBody = document.getElementById('resultsBody');
+            resultsBody.innerHTML = '';
+            
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            
+            // Set time to midnight for accurate date calculations
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            
+            // Create table rows for each day
+            const currentDate = new Date(start);
+            const rows = [];
+            
+            while (currentDate <= end) {
+                // Calculate sun times for this date
+                const times = SunCalc.getTimes(currentDate, latitude, longitude);
+                
+                // Format the date
+                const dateStr = currentDate.toISOString().split('T')[0];
+                
+                // Format sunrise and sunset times
+                const sunrise = formatTime(times.sunrise);
+                const sunset = formatTime(times.sunset);
+                
+                // Calculate day length
+                const dayLength = calculateDayLength(times.sunrise, times.sunset);
+                
+                // Create table row
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${dateStr}</td>
+                    <td>${sunrise}</td>
+                    <td>${sunset}</td>
+                    <td>${dayLength}</td>
+                `;
+                
+                rows.push(row);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            // Add all rows to the table
+            rows.forEach(row => resultsBody.appendChild(row));
+            
+            // Show the table
+            document.getElementById('resultsTable').style.display = 'table';
+        }
+        
+        function formatTime(date) {
+            if (!date) return 'N/A';
+            return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+        
+        function calculateDayLength(sunrise, sunset) {
+            if (!sunrise || !sunset) return 'N/A';
+            
+            const diffMs = sunset - sunrise;
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            
+            return `${hours}h ${minutes}m`;
+        }
+    </script>
+</body>
+</html>
